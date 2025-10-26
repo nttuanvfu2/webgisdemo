@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="initial-scale=1,user-scalable=no,maximum-scale=1,width=device-width">
+  <link rel="stylesheet" href="./resources/ol.css">
+  <link rel="stylesheet" href="resources/fontawesome-all.min.css">
+  <link rel="stylesheet" href="resources/ol-layerswitcher.css">
+  <link rel="stylesheet" href="./resources/qgis2web.css">
+
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      font-family: "Segoe UI", Tahoma, sans-serif;
+    }
+
+    /* Banner */
+    #banner {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      background-color: #2a5d84;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      font-size: 22px;
+      font-weight: bold;
+      padding: 10px 0;
+      z-index: 1001;
+    }
+    #banner img { height: 40px; }
+
+    /* Footer */
+    #footer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      background-color: rgba(255,255,255,0.85);
+      text-align: right;
+      font-size: 14px;
+      color: #333;
+      padding: 5px 15px;
+      z-index: 1001;
+      font-style: italic;
+    }
+
+    /* Map */
+    #map {
+      position: absolute;
+      top: 60px;
+      bottom: 25px;
+      left: 0;
+      right: 0;
+      height: calc(100% - 85px);
+      z-index: 1;
+    }
+
+    /* Bảng thông tin bên phải */
+    #info-panel {
+      position: fixed;
+      top: 70px;
+      right: 10px;
+      width: 340px;
+      max-height: 70%;
+      overflow-y: auto;
+      background: #fff;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      padding: 10px;
+      z-index: 1500;
+      display: none;
+    }
+
+    #info-panel h3 {
+      text-align: center;
+      color: #2a5d84;
+      margin-bottom: 10px;
+    }
+
+    #info-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    #info-table th, #info-table td {
+      border: 1px solid #ddd;
+      padding: 5px 8px;
+      font-size: 13px;
+    }
+    #info-table th {
+      background: #f0f4f7;
+      width: 40%;
+    }
+
+    .close-btn {
+      text-align: right;
+      cursor: pointer;
+      color: #666;
+      font-size: 14px;
+    }
+
+    /* Panel tìm kiếm */
+    #search-panel {
+      position: fixed;
+      top: 70px;
+      left: 10px;
+      width: 280px;
+      background: #ffffff;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      padding: 10px;
+      z-index: 1500;
+    }
+
+    #search-panel input, #search-panel select {
+      width: calc(48% - 2px);
+      padding: 6px;
+      margin: 2px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+
+    #search-panel button {
+      width: 100%;
+      padding: 7px;
+      background: #2a5d84;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      margin-top: 5px;
+      cursor: pointer;
+    }
+    #search-panel button:hover { background: #1f496a; }
+
+    /* Panel kết quả */
+    #result-panel {
+      position: fixed;
+      bottom: 40px;
+      left: 10px;
+      width: 320px;
+      background: #ffffff;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      padding: 10px;
+      z-index: 1500;
+      display: none;
+      max-height: 40%;
+      overflow-y: auto;
+    }
+
+    #result-panel h3 {
+      text-align: center;
+      color: #2a5d84;
+      margin-bottom: 10px;
+    }
+
+    #result-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    #result-table th, #result-table td {
+      border: 1px solid #ddd;
+      padding: 5px 8px;
+      font-size: 13px;
+      text-align: left;
+    }
+    #result-table th {
+      background: #f0f4f7;
+    }
+
+    tr.result-row:hover {
+      background-color: #eaf3ff;
+      cursor: pointer;
+    }
+
+  </style>
+
+  <title>Bản đồ khu vực điều tra</title>
+</head>
+<body>
+  <div id="banner">
+    <img src="https://i.ibb.co/s9T0NSSH/p3.png" alt="logo trường">
+    Bản đồ khu vực điều tra
+  </div>
+
+  <div id="map"></div>
+
+  <div id="footer">Created by: Nguyễn Thanh Tuấn (2023)</div>
+
+  <!-- Tìm kiếm -->
+  <div id="search-panel">
+    <h3>Tìm kiếm thửa đất</h3>
+    <div>
+      <select id="area-operator">
+        <option value=">">&gt;</option>
+        <option value="<">&lt;</option>
+        <option value=">=">&ge;</option>
+        <option value="<=">&le;</option>
+        <option value="=">=</option>
+      </select>
+      <input type="number" id="search-area" placeholder="Nhập diện tích">
+    </div>
+    <input type="text" id="search-ldlr" placeholder="Nhập loại đất (ldlr)">
+    <button id="search-btn">🔍 Tìm kiếm</button>
+  </div>
+
+  <!-- Bảng thông tin lô cần tìm -->
+  <div id="result-panel">
+    <div class="close-btn" onclick="document.getElementById('result-panel').style.display='none'">✖ Đóng</div>
+    <h3>Lô cần tìm</h3>
+    <table id="result-table">
+      <thead>
+        <tr><th>Lô</th><th>Area</th><th>LDLR</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <!-- Bảng thông tin khi click -->
+  <div id="info-panel">
+    <div class="close-btn" onclick="document.getElementById('info-panel').style.display='none'">✖ Đóng</div>
+    <h3>Thông tin thửa đất</h3>
+    <table id="info-table"></table>
+  </div>
+
+  <!-- Script -->
+  <script src="resources/qgis2web_expressions.js"></script>
+  <script src="./resources/functions.js"></script>
+  <script src="./resources/ol.js"></script>
+  <script src="./resources/ol-layerswitcher.js"></script>
+  <script src="layers/BasaltStone_rkk_0.js"></script>
+  <script src="styles/BasaltStone_rkk_0_style.js"></script>
+  <script src="./layers/layers.js"></script>
+  <script src="./resources/qgis2web.js"></script>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      let waitForMap = setInterval(function () {
+        if (typeof map !== "undefined") {
+          clearInterval(waitForMap);
+          console.log("✅ Map loaded");
+
+          const resultPanel = document.getElementById('result-panel');
+          const resultBody = document.querySelector('#result-table tbody');
+          const infoPanel = document.getElementById('info-panel');
+          const infoTable = document.getElementById('info-table');
+
+          // --- Sự kiện click hiện thông tin ---
+          map.on('singleclick', function (evt) {
+            let found = false;
+            map.forEachFeatureAtPixel(evt.pixel, function (feature, layer) {
+              found = true;
+              const props = feature.getProperties();
+              infoTable.innerHTML = '';
+              for (const key in props) {
+                if (key !== 'geometry') {
+                  const row = document.createElement('tr');
+                  row.innerHTML = `<th>${key}</th><td>${props[key]}</td>`;
+                  infoTable.appendChild(row);
+                }
+              }
+              infoPanel.style.display = 'block';
+            });
+            if (!found) infoPanel.style.display = 'none';
+          });
+
+          // --- Nút tìm kiếm ---
+          document.getElementById('search-btn').addEventListener('click', function () {
+            const op = document.getElementById('area-operator').value;
+            const areaVal = parseFloat(document.getElementById('search-area').value);
+            const ldlrVal = document.getElementById('search-ldlr').value.trim().toLowerCase();
+
+            resultBody.innerHTML = '';
+
+            let foundFeatures = [];
+
+            map.getLayers().forEach(layer => {
+              if (layer.get('title') && layer.get('title').includes('BasaltStone')) {
+                const source = layer.getSource();
+                source.forEachFeature(feature => {
+                  const props = feature.getProperties();
+                  const area = parseFloat(props['area']);
+                  const ldlr = props['ldlr'] ? props['ldlr'].toString().toLowerCase() : '';
+                  const lo = props['lo'] || '';
+
+                  let areaMatch = false;
+                  if (!isNaN(areaVal)) {
+                    switch (op) {
+                      case '>': areaMatch = area > areaVal; break;
+                      case '<': areaMatch = area < areaVal; break;
+                      case '>=': areaMatch = area >= areaVal; break;
+                      case '<=': areaMatch = area <= areaVal; break;
+                      case '=': areaMatch = area == areaVal; break;
+                    }
+                  } else {
+                    areaMatch = true;
+                  }
+
+                  const ldlrMatch = ldlrVal === '' || ldlr.includes(ldlrVal);
+
+                  if (areaMatch && ldlrMatch) {
+                    foundFeatures.push({ feature, lo, area, ldlr });
+                  }
+                });
+              }
+            });
+
+            if (foundFeatures.length > 0) {
+              resultPanel.style.display = 'block';
+              foundFeatures.forEach((item) => {
+                const row = document.createElement('tr');
+                row.classList.add('result-row');
+                row.innerHTML = `<td>${item.lo}</td><td>${item.area}</td><td>${item.ldlr}</td>`;
+                row.addEventListener('click', () => highlightFeature(item.feature));
+                resultBody.appendChild(row);
+              });
+            } else {
+              resultPanel.style.display = 'block';
+              resultBody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:#999;">Không tìm thấy kết quả</td></tr>';
+            }
+          });
+
+          // --- Hàm làm nổi bật lô ---
+          function highlightFeature(feature) {
+            const geometry = feature.getGeometry();
+            const extent = geometry.getExtent();
+            map.getView().fit(extent, { duration: 1000, padding: [50, 50, 50, 50] });
+
+            const originalStyle = feature.getStyle();
+            const highlight = new ol.style.Style({
+              stroke: new ol.style.Stroke({ color: 'blue', width: 3 }),
+              fill: new ol.style.Fill({ color: 'rgba(0,0,255,0.2)' })
+            });
+
+            let count = 0;
+            const blink = setInterval(() => {
+              feature.setStyle(count % 2 === 0 ? highlight : originalStyle);
+              count++;
+              if (count > 6) {
+                feature.setStyle(originalStyle);
+                clearInterval(blink);
+              }
+            }, 400);
+          }
+        }
+      }, 400);
+    });
+  </script>
+</body>
+</html>
